@@ -1,0 +1,134 @@
+﻿@using Chat.ViewModels
+@model MessageListViewModel
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header">
+            <h3>Chat</h3>
+        </div>
+        <div class="card-body" style="height:500px; overflow-y:scroll;" id="chat-content">
+            @foreach (var message in Model.Messages)
+            {
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card w-100" style="">
+                            <div class="card-body">
+                                <div class="card-title">
+                                    <h5 class="d-inline">@message.UserName</h5>
+                                </div>
+                                <div class="card-text">@Html.Raw(message.Text)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="card-footer">
+            <form asp-action="Create" id="send-message-form">
+                <div class="form-group">
+                    <input asp-for="SendModel.UserName" class="form-control" placeholder="Name">
+                    <span asp-validation-for="SendModel.UserName" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    @foreach (var imageKey in Model.ImageKeys)
+                    {
+                        <button type="button" class="btn btn-default emoji-btn">@imageKey</button>
+                    }
+                </div>
+                <div class="form-group">
+                    <textarea asp-for="SendModel.Text" class="form-control" rows="3" placeholder="Message"></textarea>
+                    <span asp-validation-for="SendModel.Text" class="text-danger"></span>
+                </div>
+                <div class="form-group text-right">
+                    <button type="submit" class="btn btn-primary" id="send-btn">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@@aspnet/signalr/dist/browser/signalr.min.js"></script>
+
+    <script type="text/javascript">
+        $(function () {
+            var $textField = $("#SendModel_Text");
+            var $usernameField = $("#SendModel_UserName");
+            var $chatContent = $("#chat-content");
+            var $sendMessageForm = $("#send-message-form");
+            var sendMessageUrl = "/Home/SendMessage";
+            scrollChatToBottom();
+            attachEvents();
+
+            //initialize signalr
+            let hubUrl = 'https://localhost:44367/chat';
+            const hubConnection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl)
+                .build();
+            hubConnection.on('Receive', receiveMessage);
+            hubConnection.start();
+
+            function attachEvents() {
+                $(".emoji-btn").click(processEmoji);
+                $("#send-btn").click(sendMessage);
+            }
+
+            function scrollChatToBottom() {
+                var chat = document.getElementById("chat-content");
+                chat.scrollTop = chat.scrollHeight;
+            }
+
+            function processEmoji() {
+                var emodji = $(this).text();
+                var text = $textField.val();
+                text += " " + emodji;
+                $textField.val(text);
+            }
+
+            function getSendMessageData() {
+                return {
+                    text: $textField.val(),
+                    userName: $usernameField.val(),
+                };
+            }
+
+            function sendMessageCallback() {
+                $textField.val("");
+            }
+
+            function sendMessage() {
+                var isFormValid = $sendMessageForm.valid();
+                if (isFormValid) {
+                    $.post(sendMessageUrl, getSendMessageData(), sendMessageCallback);
+                }
+                return false;
+            }
+
+            function receiveMessage(userName, text) {
+                var item = `
+<div class="row mt-3">
+    <div class="col-md-12">
+        <div class="card w-100" style="">
+            <div class="card-body">
+                <div class="card-title">
+                    <h5 class="d-inline">${userName}</h5>
+                </div>
+                <div class="card-text">${text}</div>
+            </div>
+        </div>
+    </div>
+</div>`;
+                $chatContent.append(item);
+                scrollChatToBottom();
+            }
+        });
+        
+
+    </script>
+}
+
+
